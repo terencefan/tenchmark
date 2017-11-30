@@ -2,6 +2,8 @@
 
 Thrift benchmark command line tools / framework.
 
+**Contributions are welcomed**
+
 ## Usage
 ```
 usage: tenchmark [<flags>] [<addr>]
