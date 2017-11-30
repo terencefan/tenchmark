@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
+	"runtime"
 	"sync"
 	"time"
 
@@ -145,10 +147,14 @@ func sort(values []int, l, r int) {
 func collect(processor *Processor, pipe chan<- string) {
 	defer close(pipe)
 
+	snano := time.Now().UnixNano()
+
 	var s = make([]int, 0)
 	for duration := range processor.ch {
 		s = append(s, duration)
 	}
+
+	dnano := time.Now().UnixNano() - snano
 
 	l := len(s)
 	sort(s, 0, l-1)
@@ -161,6 +167,19 @@ func collect(processor *Processor, pipe chan<- string) {
 		}
 	}
 
+	var (
+		duration = float64(dnano) / math.Pow(10, 9)
+		qps      = float64(l) / duration
+	)
+
+	pipe <- fmt.Sprintf("%-24s%s", "Server Address:", *addr)
+	pipe <- ""
+	pipe <- fmt.Sprintf("%-24s%d", "Concurrency level:", *concurrency)
+	pipe <- fmt.Sprintf("%-24s%.3f seconds", "Time taken for tests:", duration)
+	pipe <- fmt.Sprintf("%-24s%d", "Complete requests:", l)
+	pipe <- fmt.Sprintf("%-24s%d", "Failed requests:", *requests-l)
+	pipe <- fmt.Sprintf("%-24s%.2f [#/sec] (mean)", "Request per second:", qps)
+	pipe <- ""
 	pipe <- "Percentage of the requests served within a certain time (ms)"
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 50, v(2))
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 66, v(3))
@@ -175,7 +194,7 @@ func collect(processor *Processor, pipe chan<- string) {
 
 var (
 	requests          = kingpin.Flag("requests", "Number of requests to perform").Short('n').Default("100").Int()
-	concurrency       = kingpin.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("2").Int()
+	concurrency       = kingpin.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("10").Int()
 	path              = kingpin.Flag("path", "Http request path").Default("/").String()
 	protocol          = kingpin.Flag("protocol", "Specify protocol factory").Default("binary").String()
 	transport         = kingpin.Flag("transport", "Specify transport factory").Default("socket").String()
@@ -185,7 +204,21 @@ var (
 	addr = kingpin.Arg("addr", "Server addr").Default(":6000").String()
 )
 
+func get_transport_wrapper(name string) TransportWrapper {
+	switch name {
+	case "none":
+		return TTransportWrapper
+	case "buffered":
+		return NewTBufferedTransportFactory(4096, 4096)
+	case "framed":
+		return NewTFramedTransportFactory(false, true)
+	default:
+		panic("invalid transport wrapper")
+	}
+}
+
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	kingpin.Parse()
 
 	if *concurrency <= 0 {
@@ -199,7 +232,7 @@ func main() {
 	var processor = &Processor{
 		pf:      NewTBinaryProtocolFactory(true, true),
 		tf:      NewTSocketFactory(*addr),
-		tw:      NewTBufferedTransportFactory(4096, 4096),
+		tw:      get_transport_wrapper(*transport_wrapper),
 		fn:      call("ping"),
 		ch:      make(chan int, *concurrency*2),
 		service: *service,
