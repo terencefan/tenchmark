@@ -4,6 +4,17 @@ Thrift benchmark command line tools / framework.
 
 **Contributions are welcomed**
 
+We support following protocols and transports currently:
+
+* protocol
+    * binary
+* transport
+    * tcp socket
+    * unix domain
+* transport wrapper
+    * framed
+    * buffered
+
 ## Usage
 ```
 usage: main [<flags>] [<addr>]
