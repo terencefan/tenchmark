@@ -193,7 +193,7 @@ func collectError(processor *Processor, pipe chan<- string) {
 		case ExceptionProtocolError:
 			return "ExceptionProtocolError"
 		default:
-			return string(k)
+			return fmt.Sprintf("%d", k)
 		}
 	}
 
