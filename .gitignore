@@ -15,3 +15,5 @@
 
 /code
 /tenchmark
+.envrc
+pkg/
