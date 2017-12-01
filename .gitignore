@@ -17,3 +17,6 @@
 /tenchmark
 .envrc
 pkg/
+
+/main
+/tenchmark
