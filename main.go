@@ -43,8 +43,6 @@ var (
 
 func get_transport_wrapper(name string) TransportWrapper {
 	switch name {
-	case "none":
-		return TTransportWrapper
 	case "buffered":
 		return NewTBufferedTransportFactory(4096, 4096)
 	case "framed":
