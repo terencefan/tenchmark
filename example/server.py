@@ -49,8 +49,6 @@ class Dispatcher(object):
         for key, val in v_st_map.items():
             print key, val
 
-
-server = make_server(
-    revenue_order_thrift.RevenueOrder, Dispatcher(), "0.0.0.0", 8888
-)
+server = make_server(revenue_order_thrift.RevenueOrder,
+                     Dispatcher(), "0.0.0.0", 6000)
 server.serve()

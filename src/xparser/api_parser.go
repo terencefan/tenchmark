@@ -12,6 +12,13 @@ type APICase struct {
 	Args     map[string]interface{}
 }
 
+func GetPingCase() (api_case *APICase, err error) {
+	api_case = &APICase{
+		Function: "ping",
+	}
+	return
+}
+
 func GetCase(file string, case_name string) (api_case *APICase, err error) {
 	var (
 		data     []byte

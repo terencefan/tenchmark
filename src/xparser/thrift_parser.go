@@ -44,15 +44,26 @@ func GetParser() (*ThriftParser, error) {
 }
 
 func (p *ThriftParser) GetCallArgs(api_case *APICase) (args []*parser.Field, err error) {
-	if service, ok := p.Th.Services[api_case.Service]; ok {
-		if function, ok := service.Methods[api_case.Function]; ok {
-			args = function.Arguments
-			return
+	var (
+		service *parser.Service
+		ok      bool
+	)
+	if service, ok = p.Th.Services[api_case.Service]; !ok {
+		if len(p.Th.Services) > 0 {
+			for key := range p.Th.Services {
+				service = p.Th.Services[key]
+				break
+			}
 		} else {
-			err = fmt.Errorf("service %s have no function named: %s", api_case.Service, api_case.Function)
+			err = fmt.Errorf("thrift file have no service named: %s", api_case.Service)
+			return
 		}
+	}
+
+	if function, ok := service.Methods[api_case.Function]; ok {
+		args = function.Arguments
 	} else {
-		err = fmt.Errorf("thrift file have no service named: %s", api_case.Service)
+		err = fmt.Errorf("service %s have no function named: %s", api_case.Service, api_case.Function)
 	}
 	return
 }

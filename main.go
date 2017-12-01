@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	. "github.com/stdrickforce/thriftgo/protocol"
+	. "github.com/stdrickforce/thriftgo/thrift"
 	. "github.com/stdrickforce/thriftgo/transport"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -14,6 +15,18 @@ var (
 	wg sync.WaitGroup
 )
 
+func SkipResult(proto Protocol) (err error) {
+	var mtype byte
+	if _, mtype, _, err = proto.ReadMessageBegin(); err == nil && mtype == T_REPLY {
+		if err = proto.Skip(T_STRUCT); err == nil {
+			err = proto.ReadMessageEnd()
+		}
+	} else if mtype == T_EXCEPTION {
+		read_exception(proto)
+	}
+	return
+}
+
 var (
 	requests          = kingpin.Flag("requests", "Number of requests to perform").Short('n').Default("1000").Int()
 	concurrency       = kingpin.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("10").Int()
@@ -21,6 +34,9 @@ var (
 	transport         = kingpin.Flag("transport", "Specify transport factory").Default("socket").String()
 	transport_wrapper = kingpin.Flag("transport-wrapper", "Specify transport wrapper").Default("buffered").String()
 	service           = kingpin.Flag("service", "Specify service name").String()
+	thrift_file       = kingpin.Flag("thrift-file", "Path to thrift file").Short('f').String()
+	api_file          = kingpin.Flag("api", "Path to api file").String()
+	case_name         = kingpin.Flag("case", "Specify case name").Default("").String()
 
 	addr = kingpin.Arg("addr", "Server addr").Default(":6000").String()
 )
@@ -51,13 +67,24 @@ func main() {
 	}
 
 	var processor = &Processor{
-		pf:        NewTBinaryProtocolFactory(true, true),
-		tf:        NewTSocketFactory(*addr),
-		tw:        get_transport_wrapper(*transport_wrapper),
-		fn:        call("ping"),
 		chSuccess: make(chan int, *concurrency*2),
 		chError:   make(chan int32, *concurrency*2),
-		service:   *service,
+		pf:        NewTBinaryProtocolFactory(true, true),
+		tf:        NewTSocketFactory(*addr),
+		tw:        NewTBufferedTransportFactory(4096, 4096),
+
+		service:     *service,
+		thrift_file: *thrift_file,
+		api_file:    *api_file,
+		case_name:   *case_name,
+	}
+
+	if err := processor.initMessage(); err != nil {
+		panic(err)
+	}
+
+	if err := processor.testCall(); err != nil {
+		panic(err)
 	}
 
 	var pipe = make(chan int, *concurrency)
