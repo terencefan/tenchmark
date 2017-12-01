@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"time"
+	"xparser"
 
 	. "github.com/stdrickforce/thriftgo/protocol"
 	. "github.com/stdrickforce/thriftgo/thrift"
@@ -15,27 +16,19 @@ type Processor struct {
 	pf        ProtocolFactory
 	tf        TransportFactory
 	tw        TransportWrapper
-	fn        Case
 	chSuccess chan int
 	chError   chan int32
+
+	thrift_file string
+	api_file    string
+	case_name   string
+	message     []byte
 }
 
 func (p *Processor) process(gid int, pipe <-chan int) {
 	defer wg.Done()
 
-	var (
-		trans Transport
-		proto Protocol
-	)
-
-	trans = p.tf.GetTransport()
-	trans = p.tw.GetTransport(trans)
-	proto = p.pf.GetProtocol(trans)
-
-	if p.service != "" {
-		proto = NewMultiplexedProtocol(proto, p.service)
-	}
-
+	trans := p.tf.GetTransport()
 	if err := trans.Open(); err != nil {
 		panic(err)
 	}
@@ -43,11 +36,8 @@ func (p *Processor) process(gid int, pipe <-chan int) {
 
 	for _ = range pipe {
 		snano := time.Now().UnixNano()
-		if err := p.fn(proto); err != nil {
-			if ae, ok := err.(*TApplicationException); ok {
-				p.chError <- ae.Type
-				continue
-			}
+		if err := p.writeMessage(trans); err != nil {
+			fmt.Println(gid, err)
 			return
 		}
 		duration := time.Now().UnixNano() - snano
@@ -160,4 +150,80 @@ func (processor *Processor) collectSuccess(pipe chan<- string) {
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 99, v(100))
 	pipe <- fmt.Sprintf("%4d%% %8.2f (longest request)", 100, v(-1))
 	pipe <- ""
+}
+
+func (p *Processor) flushToTrans(trans Transport, skip_result bool) (err error) {
+	trans = p.tw.GetTransport(trans)
+	proto := p.pf.GetProtocol(trans)
+
+	if p.service != "" {
+		proto = NewMultiplexedProtocol(proto, p.service)
+	}
+
+	// thrift parser
+	parser_instance, err := xparser.InitParser(p.thrift_file)
+	if err != nil {
+		return
+		//panic(err)
+	}
+
+	// api case
+	var api_case *xparser.APICase
+	if p.case_name == "" {
+		if api_case, err = xparser.GetPingCase(); err != nil {
+			return
+		}
+	} else if api_case, err = xparser.GetCase(p.api_file, p.case_name); err != nil {
+		return
+	}
+
+	if err = parser_instance.BuildRequest(proto, api_case); err != nil {
+		return
+	}
+	err = proto.Flush()
+
+	if skip_result {
+		err = SkipResult(proto)
+	}
+
+	return
+}
+
+func (p *Processor) initMessage() (err error) {
+	membuffer := NewTMemoryBuffer()
+	membuffer.Open()
+	defer membuffer.Close()
+	if err = p.flushToTrans(membuffer, false); err != nil {
+		return
+	}
+	p.message = membuffer.GetBytes()
+	return
+}
+
+func (p *Processor) testCall() (err error) {
+	trans := p.tf.GetTransport()
+	if err = trans.Open(); err != nil {
+		return
+	}
+	defer trans.Close()
+
+	if p.message == nil {
+		err = p.flushToTrans(trans, true)
+	} else {
+		err = p.writeMessage(trans)
+	}
+	return
+}
+
+func (p *Processor) writeMessage(trans Transport) (err error) {
+	if _, err = trans.Write(p.message); err != nil {
+		err = fmt.Errorf("can't write byte to trans!")
+		return
+	}
+	proto := p.pf.GetProtocol(p.tw.GetTransport(trans))
+	if p.service != "" {
+		proto = NewMultiplexedProtocol(proto, p.service)
+	}
+	err = SkipResult(proto)
+	return
 }
