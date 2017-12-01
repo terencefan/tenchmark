@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/stdrickforce/go-thrift/parser"
+	"github.com/stdrickforce/thriftgo/parser"
 	"github.com/stdrickforce/thriftgo/protocol"
 	"github.com/stdrickforce/thriftgo/thrift"
 )
