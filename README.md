@@ -15,7 +15,6 @@ We support following protocols and transports currently:
     * framed
     * buffered
 
-## Usage
 ```
 usage: main [<flags>] [<addr>]
 
@@ -35,97 +34,71 @@ Args:
 ```
 
 ### Usage
-```
-tenchmark -n 20000 -c 100 --transport-wrapper framed --service Recommender --file ./thrift/recommender.thrift --api ./api/recommend.json --case case2 127.0.0.1:80
-tenchmark -n 20000 -c 100 --service Recommender --file ./thrift/recommender.thrift --api ./api/recommend.json -c case1 127.0.0.1:80
-```
 
-### Thrift file
-```thrift
-namespace php Recommender.Thrift
-
-struct MultiRequest {
-1: required string user_id
-       2: required string ad_id
-       3: optional string city_name
-       4: optional string first_category
-       5: optional string second_category
-       6: optional i32 size
-}
-service Recommender {
-
-    string ping()
-        throws (1: SystemException sys_exc,
-                2: CodeException code_exc)
-
-        RecResponse fetchRecByMult(1:MultiRequest req)
-        throws (1: SystemException sys_exc,
-                2: CodeException code_exc)
-
-        RecResponse fetchCtrByLR(1:string user_id, 2:string city, 3:i32 size)
-        throws (1: SystemException sys_exc,
-                2: CodeException code_exc)
-
-        string fetchCategoryByUser(1:string user_id)
-        throws (1: SystemException sys_exc,
-                2: CodeException code_exc)
-}
+* send ping request to :10010
 
 ```
-### API file
-```json
-{
-    "case1": {
-        "service": "Recommender",
-        "function": "fetchRecByMult",
-        "args": {
-            "1": {
-                "1": "etc_user_id",
-                "2": "etc_ad_id",
-                "3": "etc_city_name",
-                "4": "etc_first_cate",
-                "5": "etc_second_cate",
-                "6": "etc_size"
-            }
-        }
-    },
-    "case2": {
-        "service": "Recommender",
-        "function": "fetchRecByMult",
-        "args": {
-            "1": {
-                "1": "etc_user_id",
-                "2": "etc_ad_id",
-                "3": "etc_city_name",
-                "4": "etc_first_cate",
-                "5": "etc_second_cate",
-                "6": "etc_size"
-            }
-        }
-    },
-}
+tenchmark :10010
 ```
+
+* send ping request to :10010 via framed transport
+
+```
+tenchmark :10010 --wrapper=framed
+```
+
+* send ping request via multiplexed protocol
+
+```
+tenchmark :10010 --service=<service_name>
+```
+
+* send ping request via unix domain socket
+
+```
+tenchmark /var/run/x.sock --transport=unix
+```
+
+### Advanced Usage
+
+* send custom request
+
+```
+tenchmark -n 20000 -c 100 \
+    --thrift-file ./example/test.thrift \
+    --api-file ./example/test.json \
+    --case case 1 \
+    127.0.0.1:80
+```
+
+For further informations, see [examples]()
 
 ## Results
 ```
+This is Tenchmark, Version 0.1
+Copyright 2017 Terence Fan, Baixing, https://github.com/baixing
+Licensed under the MIT
+
 Benchmarking :6000 (be patient)......
+Completed 1000 requests
+Finished 1000 requests
 
 Server Address:         :6000
 
 Concurrency level:      10
-Time taken for tests:   0.010 seconds
-Complete requests:      100
+Time taken for tests:   0.026 seconds
+Complete requests:      1000
 Failed requests:        0
-Request per second:     10359.47 [#/sec] (mean)
+Request per second:     37887.40 [#/sec] (mean)
 
 Percentage of the requests served within a certain time (ms)
-  50%     0.06
-  66%     0.08
-  75%     0.09
-  80%     0.11
-  90%     0.13
-  95%     4.52
-  98%     6.89
-  99%     7.75
- 100%     8.50 (longest request)
+  50%     0.12
+  66%     0.14
+  75%     0.15
+  80%     0.16
+  90%     0.19
+  95%     0.22
+  98%     0.25
+  99%     0.36
+ 100%    13.27 (longest request)
 ```
