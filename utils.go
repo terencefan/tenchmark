@@ -1,5 +1,10 @@
 package main
 
+import (
+	. "github.com/stdrickforce/thriftgo/protocol"
+	. "github.com/stdrickforce/thriftgo/thrift"
+)
+
 func sort(values []int, l, r int) {
 	if l >= r {
 		return
@@ -19,4 +24,15 @@ func sort(values []int, l, r int) {
 
 	sort(values, l, i-2)
 	sort(values, i, r)
+}
+
+func read_exception(proto Protocol) (err error) {
+	var ae *TApplicationException
+	if ae, err = ReadTApplicationException(proto); err != nil {
+		return err
+	}
+	if err = proto.ReadMessageEnd(); err != nil {
+		return err
+	}
+	return ae
 }

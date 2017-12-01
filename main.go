@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	. "github.com/stdrickforce/thriftgo/protocol"
-	. "github.com/stdrickforce/thriftgo/thrift"
 	. "github.com/stdrickforce/thriftgo/transport"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -14,17 +13,6 @@ import (
 var (
 	wg sync.WaitGroup
 )
-
-func read_exception(proto Protocol) (err error) {
-	var ae *TApplicationException
-	if ae, err = ReadTApplicationException(proto); err != nil {
-		return err
-	}
-	if err = proto.ReadMessageEnd(); err != nil {
-		return err
-	}
-	return ae
-}
 
 var (
 	requests          = kingpin.Flag("requests", "Number of requests to perform").Short('n').Default("1000").Int()
