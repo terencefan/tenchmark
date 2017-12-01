@@ -20,6 +20,17 @@ var (
 	wg sync.WaitGroup
 )
 
+func read_exception(proto Protocol) (err error) {
+	var ae *TApplicationException
+	if ae, err = ReadTApplicationException(proto); err != nil {
+		return err
+	}
+	if err = proto.ReadMessageEnd(); err != nil {
+		return err
+	}
+	return ae
+}
+
 func call(name string, args ...interface{}) Case {
 	var writeMessageBody = func(proto Protocol) (err error) {
 		if err = proto.WriteStructBegin("whatever"); err != nil {
@@ -69,8 +80,11 @@ func call(name string, args ...interface{}) Case {
 		if err = writeMessageBody(proto); err != nil {
 			return
 		}
-		if _, _, _, err = proto.ReadMessageBegin(); err != nil {
+		_, mtype, _, err := proto.ReadMessageBegin()
+		if err != nil {
 			return
+		} else if mtype == T_EXCEPTION {
+			return read_exception(proto)
 		}
 		if err = proto.Skip(T_STRUCT); err != nil {
 			return
@@ -83,12 +97,13 @@ func call(name string, args ...interface{}) Case {
 }
 
 type Processor struct {
-	service string
-	pf      ProtocolFactory
-	tf      TransportFactory
-	tw      TransportWrapper
-	fn      Case
-	ch      chan int
+	service   string
+	pf        ProtocolFactory
+	tf        TransportFactory
+	tw        TransportWrapper
+	fn        Case
+	chSuccess chan int
+	chError   chan int32
 }
 
 func (p *Processor) process(gid, count int) {
@@ -115,11 +130,14 @@ func (p *Processor) process(gid, count int) {
 	for i := 0; i < count; i++ {
 		snano := time.Now().UnixNano()
 		if err := p.fn(proto); err != nil {
-			fmt.Println(gid, err)
+			if ae, ok := err.(*TApplicationException); ok {
+				p.chError <- ae.Type
+				continue
+			}
 			return
 		}
 		duration := time.Now().UnixNano() - snano
-		p.ch <- int(duration / 1000)
+		p.chSuccess <- int(duration / 1000)
 	}
 }
 
@@ -144,13 +162,56 @@ func sort(values []int, l, r int) {
 	sort(values, i, r)
 }
 
-func collect(processor *Processor, pipe chan<- string) {
+func collectError(processor *Processor, pipe chan<- string) {
+	defer close(pipe)
+
+	var (
+		count        int
+		distribution = make(map[int32]int)
+	)
+
+	for mtype := range processor.chError {
+		count++
+		distribution[mtype]++
+	}
+	var s = func(k int32) string {
+		switch k {
+		case ExceptionUnknown:
+			return "ExceptionUnknown"
+		case ExceptionUnknownMethod:
+			return "ExceptionUnknownMethod"
+		case ExceptionInvalidMessageType:
+			return "ExceptionInvalidMessageType"
+		case ExceptionWrongMethodName:
+			return "ExceptionWrongMethodName"
+		case ExceptionBadSequenceID:
+			return "ExceptionBadSequenceID"
+		case ExceptionMissingResult:
+			return "ExceptionMissingResult"
+		case ExceptionInternalError:
+			return "ExceptionInternalError"
+		case ExceptionProtocolError:
+			return "ExceptionProtocolError"
+		default:
+			return string(k)
+		}
+	}
+
+	if count > 0 {
+		pipe <- fmt.Sprintf("Count of the exception replied by server:")
+		for mtype, val := range distribution {
+			pipe <- fmt.Sprintf("%-32s%d", s(mtype), val)
+		}
+	}
+}
+
+func collectSuccess(processor *Processor, pipe chan<- string) {
 	defer close(pipe)
 
 	snano := time.Now().UnixNano()
 
 	var s = make([]int, 0)
-	for duration := range processor.ch {
+	for duration := range processor.chSuccess {
 		s = append(s, duration)
 	}
 
@@ -180,6 +241,11 @@ func collect(processor *Processor, pipe chan<- string) {
 	pipe <- fmt.Sprintf("%-24s%d", "Failed requests:", *requests-l)
 	pipe <- fmt.Sprintf("%-24s%.2f [#/sec] (mean)", "Request per second:", qps)
 	pipe <- ""
+
+	if l == 0 {
+		return
+	}
+
 	pipe <- "Percentage of the requests served within a certain time (ms)"
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 50, v(2))
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 66, v(3))
@@ -190,11 +256,12 @@ func collect(processor *Processor, pipe chan<- string) {
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 98, v(50))
 	pipe <- fmt.Sprintf("%4d%% %8.2f", 99, v(100))
 	pipe <- fmt.Sprintf("%4d%% %8.2f (longest request)", 100, v(-1))
+	pipe <- ""
 }
 
 var (
-	requests          = kingpin.Flag("requests", "Number of requests to perform").Short('n').Default("100").Int()
-	concurrency       = kingpin.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("10").Int()
+	requests          = kingpin.Flag("requests", "Number of requests to perform").Short('n').Default("10").Int()
+	concurrency       = kingpin.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("2").Int()
 	path              = kingpin.Flag("path", "Http request path").Default("/").String()
 	protocol          = kingpin.Flag("protocol", "Specify protocol factory").Default("binary").String()
 	transport         = kingpin.Flag("transport", "Specify transport factory").Default("socket").String()
@@ -230,16 +297,20 @@ func main() {
 	}
 
 	var processor = &Processor{
-		pf:      NewTBinaryProtocolFactory(true, true),
-		tf:      NewTSocketFactory(*addr),
-		tw:      get_transport_wrapper(*transport_wrapper),
-		fn:      call("ping"),
-		ch:      make(chan int, *concurrency*2),
-		service: *service,
+		pf:        NewTBinaryProtocolFactory(true, true),
+		tf:        NewTSocketFactory(*addr),
+		tw:        get_transport_wrapper(*transport_wrapper),
+		fn:        call("ping"),
+		chSuccess: make(chan int, *concurrency*2),
+		chError:   make(chan int32, *concurrency*2),
+		service:   *service,
 	}
 
-	var pipe = make(chan string)
-	go collect(processor, pipe)
+	var pipe1 = make(chan string, 50)
+	var pipe2 = make(chan string, 50)
+
+	go collectSuccess(processor, pipe1)
+	go collectError(processor, pipe2)
 
 	fmt.Printf("Benchmarking %v (be patient)......\n\n", *addr)
 
@@ -254,9 +325,13 @@ func main() {
 	}
 	wg.Wait()
 
-	close(processor.ch)
+	close(processor.chSuccess)
+	close(processor.chError)
 
-	for line := range pipe {
+	for line := range pipe1 {
+		fmt.Println(line)
+	}
+	for line := range pipe2 {
 		fmt.Println(line)
 	}
 }
