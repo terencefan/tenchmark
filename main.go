@@ -106,7 +106,7 @@ type Processor struct {
 	chError   chan int32
 }
 
-func (p *Processor) process(gid, count int) {
+func (p *Processor) process(gid int, pipe <-chan int) {
 	defer wg.Done()
 
 	var (
@@ -127,7 +127,7 @@ func (p *Processor) process(gid, count int) {
 	}
 	defer trans.Close()
 
-	for i := 0; i < count; i++ {
+	for _ = range pipe {
 		snano := time.Now().UnixNano()
 		if err := p.fn(proto); err != nil {
 			if ae, ok := err.(*TApplicationException); ok {
@@ -314,15 +314,15 @@ func main() {
 
 	fmt.Printf("Benchmarking %v (be patient)......\n\n", *addr)
 
-	quotient, remainder := *requests / *concurrency, *requests%*concurrency
+	var pipe = make(chan int, *concurrency)
 	for i := 0; i < *concurrency; i++ {
-		if i < remainder {
-			go processor.process(i, quotient+1)
-		} else {
-			go processor.process(i, quotient)
-		}
+		go processor.process(i, pipe)
 		wg.Add(1)
 	}
+	for i := 0; i < *requests; i++ {
+		pipe <- i
+	}
+	close(pipe)
 	wg.Wait()
 
 	close(processor.chSuccess)
