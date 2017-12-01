@@ -1,6 +1,6 @@
 # Tenchmark
 
-Thrift benchmark command line tools / framework.
+Thrift benchmark command line tool.
 
 **Contributions are welcomed**
 
