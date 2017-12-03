@@ -74,11 +74,12 @@ func main() {
 		chSuccess: make(chan int, *concurrency*2),
 		chError:   make(chan int32, *concurrency*2),
 	}
-	if err := processor.Case(*thrift_file, *api_file, *testcase); err != nil {
+
+	if err := processor.initMessage(); err != nil {
 		panic(err)
 	}
 
-	if err := processor.initMessage(); err != nil {
+	if err := processor.Case(*thrift_file, *api_file, *testcase); err != nil {
 		panic(err)
 	}
 

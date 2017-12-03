@@ -40,7 +40,6 @@ func GetParser() (*ThriftParser, error) {
 		return nil, fmt.Errorf("parser root is nil")
 	}
 	return parser_instance, nil
-
 }
 
 func (p *ThriftParser) GetCallArgs(api_case *APICase) (args []*parser.Field, err error) {

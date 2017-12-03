@@ -1,0 +1,43 @@
+{
+    "case2": {
+        "service": "RevenueOrder",
+        "function": "foo",
+        "args": {
+            "v_i16": 32,
+            "v_bool": "true",
+            "v_i32": "53",
+            "v_str": "hello",
+            "v_list": [
+                1, 4, 5
+            ],
+            "v_set": [
+                "world",
+                "foo",
+                "over"
+            ],
+            "v_map": {
+                "11": 213.1,
+                "22": "2131",
+                "33": 123
+            },
+            "v_st": {
+                "v1": 2,
+                "v2": "haha"
+            },
+            "v_st_map": {
+                "k1": {
+                    "v1": 1,
+                    "v2": "aaa"
+                },
+                "k2": {
+                    "v1": 2,
+                    "v2": "bbb"
+                },
+                "k3": {
+                    "v1": 3,
+                    "v2": "ccc"
+                }
+            }
+        }
+    }
+}
