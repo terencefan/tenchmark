@@ -16,23 +16,23 @@ We support following protocols and transports currently:
     * buffered
 
 ```
-usage: tenchmark [<flags>] [<addr>]
+Thrift benchmark command-line tools
 
 Flags:
-      --help                Show context-sensitive help (also try
-                            --help-long and --help-man).
-  -n, --requests=1000       Number of requests to perform
-  -c, --concurrency=10      Number of multiple requests to make at a time
-      --protocol="binary"   Specify protocol factory
-      --transport="socket"  Specify transport factory
-      --wrapper="buffered"  Specify transport wrapper
-      --service=SERVICE     Specify service name
-      --thrift=THRIFT       Path to thrift file
-      --api=API             Path to api json file
-      --case=""             Specify case name
+  --help               Show context-sensitive help (also try --help-long and
+                       --help-man).
+  --protocol="binary"  Specify protocol factory
+  --service=SERVICE    Specify service name (multiplexed)
 
-Args:
-  [<addr>]  Server addr
+Commands:
+  help [<command>...]
+    Show help.
+
+  run [<flags>] [<addr>]
+    Run benchmark tests
+
+  build --json=JSON [<flags>] <thrift>
+    Build cases from thrift file and json inputs
 ```
 
 ### Usage
@@ -40,46 +40,49 @@ Args:
 * send ping request to :10010
 
 ```
-tenchmark :10010
+$ tenchmark run :10010
 ```
 
 * send ping request with multiplexed protocol
 
 ```
-tenchmark :10010 --service=<service_name>
+$ tenchmark run :10010 --service=<service_name>
 ```
 
 * send ping request to :10010 via framed transport
 
 ```
-tenchmark :10010 --wrapper=framed
+$ tenchmark run :10010 --wrapper=framed
 ```
 
 * send ping request via unix domain socket
 
 ```
-tenchmark /var/run/x.sock --transport=unix
+$ tenchmark run /var/run/x.sock --transport=unix
 ```
 
 * send ping request via http
 
 ```
-tenchmark http://<host>:<port>/<path> --transport=http
+$ tenchmark run http://<host>:<port>/<path> --transport=http
 ```
 
 ### Advanced Usage
 
-* send custom request
+You can build your own cases through **tenchmark build** command.
 
 ```
-tenchmark -n 20000 -c 100 \
-    --thrift=./example/ping.thrift \
-    --api=./example/api.json \
-    --case case1 \
-    :6000
+$ tenchmark build example/ping.thrift --json=example/api.json
+cases/case1.in sucessfully generated.
 ```
 
-For further informations, see [examples]()
+And you can specify the case you've built through following command.
+
+```
+$ tenchmark run --case=cases/case1.in
+```
+
+For further informations, see [examples (work in progress)]()
 
 ## Results
 ```

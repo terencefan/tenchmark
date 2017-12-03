@@ -1,4 +1,4 @@
-package main
+package xparser
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 
 type Case func(proto Protocol) error
 
-func call(name string, args ...interface{}) Case {
+func Call(name string, args ...interface{}) Case {
 	var writeMessageBody = func(proto Protocol) (err error) {
 		if err = proto.WriteStructBegin("whatever"); err != nil {
 			return

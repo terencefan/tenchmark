@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"time"
 	"xparser"
 
@@ -16,41 +18,7 @@ type Processor struct {
 	tw        TransportWrapper
 	chSuccess chan int
 	chError   chan int32
-
-	thrift_file string
-	api_file    string
-	case_name   string
-	message     []byte
-}
-
-func (p *Processor) Case(thrift, api, name string) (err error) {
-	if (thrift == "") && (api == "") {
-		return
-	} else if (thrift == "") != (api == "") {
-		fmt.Println("[WARNING] found one of the `thrift_file` and `api_file`, ignored.")
-	}
-
-	parser, err := xparser.InitParser(thrift)
-	if err != nil {
-		return
-	}
-
-	var apicase *xparser.APICase
-	if name == "" {
-		apicase = xparser.PingCase
-	} else {
-		if apicase, err = xparser.GetCase(api, name); err != nil {
-			return
-		}
-	}
-
-	trans := NewTMemoryBuffer()
-	proto := p.GetProtocol(trans)
-	if err = parser.BuildRequest(proto, apicase); err != nil {
-		return
-	}
-	p.message = trans.GetBytes()
-	return
+	message   []byte
 }
 
 func (p *Processor) process(gid int, pipe <-chan int) {
@@ -99,48 +67,25 @@ func (p *Processor) call(proto Protocol) (err error) {
 	return
 }
 
-func (p *Processor) flushToTrans(trans Transport, skip_result bool) (err error) {
-	trans = p.tw.GetTransport(trans)
-	proto := p.pf.GetProtocol(trans)
+func (p *Processor) initMessage(filename string) (err error) {
+	if filename == "" {
+		trans := NewTMemoryBuffer()
+		proto := p.GetProtocol(trans)
 
-	if p.service != "" {
-		proto = NewMultiplexedProtocol(proto, p.service)
+		var fn = xparser.Call("ping")
+		if err = fn(proto); err != nil {
+			return
+		}
+		p.message = trans.GetBytes()
+	} else {
+		var f *os.File
+		if f, err = os.Open(filename); err != nil {
+			return err
+		}
+		if p.message, err = ioutil.ReadAll(f); err != nil {
+			return
+		}
 	}
-
-	// thrift parser
-	parser, err := xparser.InitParser(p.thrift_file)
-	if err != nil {
-		return
-	}
-
-	// api case
-	var api_case *xparser.APICase
-	if p.case_name == "" {
-		api_case = xparser.PingCase
-	} else if api_case, err = xparser.GetCase(p.api_file, p.case_name); err != nil {
-		return
-	}
-
-	if err = parser.BuildRequest(proto, api_case); err != nil {
-		return
-	}
-	err = proto.GetTransport().Flush()
-
-	return skip_response(proto)
-}
-
-func (p *Processor) initMessage() (err error) {
-	membuffer := NewTMemoryBuffer()
-	membuffer.Open()
-	defer membuffer.Close()
-
-	proto := p.GetProtocol(membuffer)
-
-	var fn = call("ping")
-	if err = fn(proto); err != nil {
-		return
-	}
-	p.message = membuffer.GetBytes()
 	return
 }
 

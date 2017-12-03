@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"sync"
+	"xparser"
 
 	. "github.com/stdrickforce/thriftgo/protocol"
 	. "github.com/stdrickforce/thriftgo/transport"
@@ -16,18 +18,26 @@ var (
 )
 
 var (
-	requests    = kingpin.Flag("requests", "Number of requests to perform").Short('n').Default("1000").Int()
-	concurrency = kingpin.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("10").Int()
-	protocol    = kingpin.Flag("protocol", "Specify protocol factory").Default("binary").String()
-	transport   = kingpin.Flag("transport", "Specify transport factory").Default("socket").String()
-	wrapper     = kingpin.Flag("wrapper", "Specify transport wrapper").Default("buffered").String()
-	service     = kingpin.Flag("service", "Specify service name").String()
+	app = kingpin.New("tenchmark", "Thrift benchmark command-line tools")
 
-	thrift_file = kingpin.Flag("thrift", "Path to thrift file").ExistingFile()
-	api_file    = kingpin.Flag("api", "Path to api json file").ExistingFile()
-	testcase    = kingpin.Flag("case", "Specify case name").Default("").String()
+	protocol = app.Flag("protocol", "Specify protocol factory").Default("binary").String()
+	service  = app.Flag("service", "Specify service name (multiplexed)").String()
 
-	addr = kingpin.Arg("addr", "Server addr").Default(":6000").String()
+	run   = app.Command("run", "Run benchmark tests")
+	build = app.Command("build", "Build cases from thrift file and json inputs")
+
+	// run command args.
+	requests    = run.Flag("requests", "Number of requests to perform").Short('n').Default("1000").Int()
+	concurrency = run.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("10").Int()
+	transport   = run.Flag("transport", "Specify transport factory").Default("socket").String()
+	wrapper     = run.Flag("wrapper", "Specify transport wrapper").Default("buffered").String()
+	casefile    = run.Flag("case", "Generated from `tenchmark build`").Short('b').ExistingFile()
+	addr        = run.Arg("addr", "Server addr").Default(":6000").String()
+
+	// build command args
+	api_json    = build.Flag("json", "Path to api json file").Required().ExistingFile()
+	thrift_file = build.Arg("thrift", "Path to thrift file").Required().ExistingFile()
+	outputdir   = build.Flag("out", "Path to generated .in files").Default("cases").String()
 )
 
 func get_transport_factory(name, addr string) TransportFactory {
@@ -54,9 +64,17 @@ func get_transport_wrapper(name string) TransportWrapper {
 	}
 }
 
-func main() {
+func get_protocol_factory(name string) ProtocolFactory {
+	switch name {
+	case "binary":
+		return NewTBinaryProtocolFactory(true, true)
+	default:
+		panic("invalid protocol: " + name)
+	}
+}
+
+func run_test() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	kingpin.Parse()
 
 	if *concurrency <= 0 {
 		panic("Invalid number of concurrency")
@@ -75,11 +93,7 @@ func main() {
 		chError:   make(chan int32, *concurrency*2),
 	}
 
-	if err := processor.initMessage(); err != nil {
-		panic(err)
-	}
-
-	if err := processor.Case(*thrift_file, *api_file, *testcase); err != nil {
+	if err := processor.initMessage(*casefile); err != nil {
 		panic(err)
 	}
 
@@ -110,4 +124,45 @@ func main() {
 	close(processor.chSuccess)
 	close(processor.chError)
 	wg2.Wait()
+}
+
+func build_cases() {
+	parser, err := xparser.InitParser(*thrift_file)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Mkdir(*outputdir, os.FileMode(0755))
+
+	apis, err := xparser.NewApiParser(*api_json)
+	if err != nil {
+		panic(err)
+	}
+
+	for name, apicase := range apis.GetCases() {
+		filename := fmt.Sprintf("%s/%s.in", *outputdir, name)
+		trans := xparser.NewFileOutputStream(filename)
+		proto := get_protocol_factory(*protocol).GetProtocol(trans)
+
+		if err = trans.Open(); err != nil {
+			panic(err)
+		}
+		if err = parser.BuildRequest(proto, apicase); err != nil {
+			panic(err)
+		}
+		if err = trans.Close(); err != nil {
+			panic(err)
+		}
+		fmt.Printf("%s sucessfully generated.\n", filename)
+	}
+
+}
+
+func main() {
+	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	case run.FullCommand():
+		run_test()
+	case build.FullCommand():
+		build_cases()
+	}
 }

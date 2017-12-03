@@ -13,10 +13,12 @@
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
 
-/code
+/cases
 /tenchmark
-.envrc
-pkg/
+/pkg
 
+.envrc
+
+# bin files.
 /main
 /tenchmark
