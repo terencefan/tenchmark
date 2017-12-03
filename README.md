@@ -16,18 +16,20 @@ We support following protocols and transports currently:
     * buffered
 
 ```
-usage: main [<flags>] [<addr>]
+usage: tenchmark [<flags>] [<addr>]
 
 Flags:
-      --help                Show context-sensitive help (also try --help-long and --help-man).
-  -n, --requests=10         Number of requests to perform
-  -c, --concurrency=2       Number of multiple requests to make at a time
-      --path="/"            Http request path
+      --help                Show context-sensitive help (also try
+                            --help-long and --help-man).
+  -n, --requests=1000       Number of requests to perform
+  -c, --concurrency=10      Number of multiple requests to make at a time
       --protocol="binary"   Specify protocol factory
       --transport="socket"  Specify transport factory
-      --transport-wrapper="buffered"
-                            Specify transport wrapper
+      --wrapper="buffered"  Specify transport wrapper
       --service=SERVICE     Specify service name
+      --thrift=THRIFT       Path to thrift file
+      --api=API             Path to api json file
+      --case=""             Specify case name
 
 Args:
   [<addr>]  Server addr
@@ -41,16 +43,16 @@ Args:
 tenchmark :10010
 ```
 
+* send ping request with multiplexed protocol
+
+```
+tenchmark :10010 --service=<service_name>
+```
+
 * send ping request to :10010 via framed transport
 
 ```
 tenchmark :10010 --wrapper=framed
-```
-
-* send ping request via multiplexed protocol
-
-```
-tenchmark :10010 --service=<service_name>
 ```
 
 * send ping request via unix domain socket
@@ -59,16 +61,22 @@ tenchmark :10010 --service=<service_name>
 tenchmark /var/run/x.sock --transport=unix
 ```
 
+* send ping request via http
+
+```
+tenchmark http://<host>:<port>/<path> --transport=http
+```
+
 ### Advanced Usage
 
 * send custom request
 
 ```
 tenchmark -n 20000 -c 100 \
-    --thrift-file ./example/test.thrift \
-    --api-file ./example/test.json \
-    --case case 1 \
-    127.0.0.1:80
+    --thrift=./example/ping.thrift \
+    --api=./example/api.json \
+    --case case1 \
+    :6000
 ```
 
 For further informations, see [examples]()

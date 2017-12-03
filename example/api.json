@@ -1,6 +1,6 @@
 {
-    "case2": {
-        "service": "RevenueOrder",
+    "case1": {
+        "service": "Ping",
         "function": "foo",
         "args": {
             "v_i16": 32,
