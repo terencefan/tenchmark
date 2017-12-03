@@ -30,6 +30,19 @@ var (
 	addr = kingpin.Arg("addr", "Server addr").Default(":6000").String()
 )
 
+func get_transport_factory(name, addr string) TransportFactory {
+	switch name {
+	case "socket":
+		return NewTSocketFactory(addr)
+	case "unix":
+		return NewTUnixSocketFactory(addr)
+	case "http":
+		return NewTHttpTransportFactory(addr)
+	default:
+		panic("invalid transport type: " + name)
+	}
+}
+
 func get_transport_wrapper(name string) TransportWrapper {
 	switch name {
 	case "buffered":
@@ -37,7 +50,7 @@ func get_transport_wrapper(name string) TransportWrapper {
 	case "framed":
 		return NewTFramedTransportFactory(false, true)
 	default:
-		panic("invalid transport wrapper")
+		panic("invalid transport wrapper: " + name)
 	}
 }
 
@@ -53,13 +66,11 @@ func main() {
 		panic("Invalid number of requests")
 	}
 
-	*service = "Revenue"
-
 	var processor = &Processor{
 		service:   *service,
 		pf:        NewTBinaryProtocolFactory(true, true),
-		tf:        NewTSocketFactory(*addr),
-		tw:        NewTBufferedTransportFactory(4096, 4096),
+		tf:        get_transport_factory(*transport, *addr),
+		tw:        get_transport_wrapper(*wrapper),
 		chSuccess: make(chan int, *concurrency*2),
 		chError:   make(chan int32, *concurrency*2),
 	}
