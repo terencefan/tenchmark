@@ -46,6 +46,20 @@ We support following protocols and transports currently:
     * framed
     * buffered
 
+## Installation
+
+```
+git clone git@github.com:stdrickforce/tenchmark.git
+go get -u
+go install
+```
+
+or you can use our docker image (base on alpine linux)
+
+```
+docker run --rm -ti stdrickforce/tenchmark sh
+```
+
 ### Usage
 
 * send ping request to :10010
