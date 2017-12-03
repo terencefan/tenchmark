@@ -4,6 +4,36 @@ Thrift benchmark command line tool.
 
 **Contributions are welcomed**
 
+## Quickview
+```
+This is Tenchmark, Version 0.1
+Copyright 2017 Terence Fan, Baixing, https://github.com/baixing
+Licensed under the MIT
+
+Benchmarking :6000 (be patient)......
+Completed 1000 requests
+Finished 1000 requests
+
+Server Address:         :6000
+
+Concurrency level:      10
+Time taken for tests:   0.026 seconds
+Complete requests:      1000
+Failed requests:        0
+Request per second:     37887.40 [#/sec] (mean)
+
+Percentage of the requests served within a certain time (ms)
+  50%     0.12
+  66%     0.14
+  75%     0.15
+  80%     0.16
+  90%     0.19
+  95%     0.22
+  98%     0.25
+  99%     0.36
+ 100%    13.27 (longest request)
+```
+
 We support following protocols and transports currently:
 
 * protocol
@@ -15,26 +45,6 @@ We support following protocols and transports currently:
 * transport wrapper
     * framed
     * buffered
-
-```
-Thrift benchmark command-line tools
-
-Flags:
-  --help               Show context-sensitive help (also try --help-long and
-                       --help-man).
-  --protocol="binary"  Specify protocol factory
-  --service=SERVICE    Specify service name (multiplexed)
-
-Commands:
-  help [<command>...]
-    Show help.
-
-  run [<flags>] [<addr>]
-    Run benchmark tests
-
-  build --json=JSON [<flags>] <thrift>
-    Build cases from thrift file and json inputs
-```
 
 ### Usage
 
@@ -84,33 +94,3 @@ $ tenchmark run --case=cases/case1.in
 ```
 
 For further informations, see [examples (work in progress)]()
-
-## Results
-```
-This is Tenchmark, Version 0.1
-Copyright 2017 Terence Fan, Baixing, https://github.com/baixing
-Licensed under the MIT
-
-Benchmarking :6000 (be patient)......
-Completed 1000 requests
-Finished 1000 requests
-
-Server Address:         :6000
-
-Concurrency level:      10
-Time taken for tests:   0.026 seconds
-Complete requests:      1000
-Failed requests:        0
-Request per second:     37887.40 [#/sec] (mean)
-
-Percentage of the requests served within a certain time (ms)
-  50%     0.12
-  66%     0.14
-  75%     0.15
-  80%     0.16
-  90%     0.19
-  95%     0.22
-  98%     0.25
-  99%     0.36
- 100%    13.27 (longest request)
-```
