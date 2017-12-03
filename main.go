@@ -23,9 +23,9 @@ var (
 	wrapper     = kingpin.Flag("wrapper", "Specify transport wrapper").Default("buffered").String()
 	service     = kingpin.Flag("service", "Specify service name").String()
 
-	thrift_file = kingpin.Flag("thrift-file", "Path to thrift file").Short('f').String()
-	api_file    = kingpin.Flag("api-file", "Path to api file").String()
-	case_name   = kingpin.Flag("case", "Specify case name").Default("").String()
+	thrift_file = kingpin.Flag("thrift", "Path to thrift file").ExistingFile()
+	api_file    = kingpin.Flag("api", "Path to api json file").ExistingFile()
+	testcase    = kingpin.Flag("case", "Specify case name").Default("").String()
 
 	addr = kingpin.Arg("addr", "Server addr").Default(":6000").String()
 )
@@ -56,16 +56,15 @@ func main() {
 	*service = "Revenue"
 
 	var processor = &Processor{
-		chSuccess: make(chan int, *concurrency*2),
-		chError:   make(chan int32, *concurrency*2),
+		service:   *service,
 		pf:        NewTBinaryProtocolFactory(true, true),
 		tf:        NewTSocketFactory(*addr),
 		tw:        NewTBufferedTransportFactory(4096, 4096),
-
-		service:     *service,
-		thrift_file: *thrift_file,
-		api_file:    *api_file,
-		case_name:   *case_name,
+		chSuccess: make(chan int, *concurrency*2),
+		chError:   make(chan int32, *concurrency*2),
+	}
+	if err := processor.Case(*thrift_file, *api_file, *testcase); err != nil {
+		panic(err)
 	}
 
 	if err := processor.initMessage(); err != nil {

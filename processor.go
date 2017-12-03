@@ -23,6 +23,36 @@ type Processor struct {
 	message     []byte
 }
 
+func (p *Processor) Case(thrift, api, name string) (err error) {
+	if (thrift == "") && (api == "") {
+		return
+	} else if (thrift == "") != (api == "") {
+		fmt.Println("[WARNING] found one of the `thrift_file` and `api_file`, ignored.")
+	}
+
+	parser, err := xparser.InitParser(thrift)
+	if err != nil {
+		return
+	}
+
+	var apicase *xparser.APICase
+	if name == "" {
+		apicase = xparser.PingCase
+	} else {
+		if apicase, err = xparser.GetCase(api, name); err != nil {
+			return
+		}
+	}
+
+	trans := NewTMemoryBuffer()
+	proto := p.GetProtocol(trans)
+	if err = parser.BuildRequest(proto, apicase); err != nil {
+		return
+	}
+	p.message = trans.GetBytes()
+	return
+}
+
 func (p *Processor) process(gid int, pipe <-chan int) {
 	defer wg.Done()
 
@@ -78,7 +108,7 @@ func (p *Processor) flushToTrans(trans Transport, skip_result bool) (err error) 
 	}
 
 	// thrift parser
-	parser_instance, err := xparser.InitParser(p.thrift_file)
+	parser, err := xparser.InitParser(p.thrift_file)
 	if err != nil {
 		return
 	}
@@ -86,14 +116,12 @@ func (p *Processor) flushToTrans(trans Transport, skip_result bool) (err error) 
 	// api case
 	var api_case *xparser.APICase
 	if p.case_name == "" {
-		if api_case, err = xparser.GetPingCase(); err != nil {
-			return
-		}
+		api_case = xparser.PingCase
 	} else if api_case, err = xparser.GetCase(p.api_file, p.case_name); err != nil {
 		return
 	}
 
-	if err = parser_instance.BuildRequest(proto, api_case); err != nil {
+	if err = parser.BuildRequest(proto, api_case); err != nil {
 		return
 	}
 	err = proto.GetTransport().Flush()
