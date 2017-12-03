@@ -11,6 +11,7 @@ We support following protocols and transports currently:
 * transport
     * tcp socket
     * unix domain
+    * http
 * transport wrapper
     * framed
     * buffered
