@@ -21,12 +21,12 @@ var (
 	app = kingpin.New("tenchmark", "Thrift benchmark command-line tools")
 
 	protocol = app.Flag("protocol", "Specify protocol factory").Default("binary").String()
-	service  = app.Flag("service", "Specify service name (multiplexed)").String()
 
 	run   = app.Command("run", "Run benchmark tests")
 	build = app.Command("build", "Build cases from thrift file and json inputs")
 
 	// run command args.
+	service     = run.Flag("service", "Specify service name (multiplexed)").String()
 	requests    = run.Flag("requests", "Number of requests to perform").Short('n').Default("1000").Int()
 	concurrency = run.Flag("concurrency", "Number of multiple requests to make at a time").Short('c').Default("10").Int()
 	transport   = run.Flag("transport", "Specify transport factory").Default("socket").String()
@@ -36,8 +36,9 @@ var (
 
 	// build command args
 	api_json    = build.Flag("json", "Path to api json file").Required().ExistingFile()
-	thrift_file = build.Arg("thrift", "Path to thrift file").Required().ExistingFile()
 	outputdir   = build.Flag("out", "Path to generated .in files").Default("cases").String()
+	multiplexed = build.Flag("multiplexed", "If service protocol is Multiplexed.").Bool()
+	thrift_file = build.Arg("thrift", "Path to thrift file").Required().ExistingFile()
 )
 
 func get_transport_factory(name, addr string) TransportFactory {
@@ -147,7 +148,7 @@ func build_cases() {
 		if err = trans.Open(); err != nil {
 			panic(err)
 		}
-		if err = parser.BuildRequest(proto, apicase); err != nil {
+		if err = parser.BuildRequest(proto, apicase, *multiplexed); err != nil {
 			panic(err)
 		}
 		if err = trans.Close(); err != nil {

@@ -80,14 +80,20 @@ func (p *ThriftParser) GetStruct(struct_name string) (st *parser.Struct, err err
 	return
 }
 
-func (p *ThriftParser) BuildRequest(proto protocol.Protocol, api_case *APICase) (err error) {
+func (p *ThriftParser) BuildRequest(proto protocol.Protocol, api_case *APICase, multiplexed bool) (err error) {
 	var args []*parser.Field
 
 	if args, err = p.GetCallArgs(api_case); err != nil {
 		return
 	}
 
-	if err = proto.WriteMessageBegin(api_case.Function, thrift.T_CALL, 0); err != nil {
+	var funcname string
+	if multiplexed {
+		funcname = fmt.Sprintf("%s:%s", api_case.Service, api_case.Function)
+	} else {
+		funcname = api_case.Function
+	}
+	if err = proto.WriteMessageBegin(funcname, thrift.T_CALL, 0); err != nil {
 		return
 	}
 	if err = proto.WriteStructBegin(""); err != nil {
