@@ -1,0 +1,15 @@
+FROM golang
+
+COPY . /tenchmark
+
+WORKDIR /tenchmark
+
+RUN echo "hello!" \
+    && export GOPATH=`pwd` \
+    && export GOBIN=/usr/bin \
+    && go get -x \
+    && go install \
+    && echo $GOPATH \
+    && rm -r /tenchmark
+
+WORKDIR /
