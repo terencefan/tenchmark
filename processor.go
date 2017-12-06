@@ -45,6 +45,7 @@ func (p *Processor) process(gid int, pipe <-chan int) {
 
 func (p *Processor) test() (err error) {
 	trans, err := p.GetTransport()
+	trans.SetTimeout(5 * time.Second)
 	if err != nil {
 		return
 	}
