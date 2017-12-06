@@ -37,7 +37,7 @@ func collect_success(ch <-chan int, pipe chan<- string) {
 		if denominator <= 0 {
 			return float64(s[l-1]) / 1000
 		} else {
-			return float64(s[l*(denominator-1)/denominator-1]) / 1000
+			return float64(s[l*(denominator-1)/denominator]) / 1000
 		}
 	}
 
