@@ -141,6 +141,7 @@ func build_cases() {
 	}
 
 	for name, apicase := range apis.GetCases() {
+		fmt.Printf("%s case start to generate.\n", name)
 		filename := fmt.Sprintf("%s/%s.in", *outputdir, name)
 		trans := xparser.NewFileOutputStream(filename)
 		proto := get_protocol_factory(*protocol).GetProtocol(trans)

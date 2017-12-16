@@ -117,7 +117,7 @@ func (p *ThriftParser) BuildRequest(proto protocol.Protocol, api_case *APICase, 
 				return
 			}
 		} else if !arg.Optional {
-			panic(fmt.Sprintf("arg %s is required!", arg.Name))
+			return fmt.Errorf("arg %s is required in function \"%s\"!", arg.Name, api_case.Function)
 		}
 	}
 
@@ -275,7 +275,7 @@ func (p *ThriftParser) writeData(proto protocol.Protocol, data interface{}, fiel
 						return
 					}
 				} else if !field.Optional {
-					err = fmt.Errorf("field %s is required!", field.Name)
+					err = fmt.Errorf("field %s is required in param \"%s\"!", field.Name, field_meta.Name)
 					return
 				}
 			}
