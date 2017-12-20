@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+	"sync"
 )
 
 type Dispatcher interface {
 	Init()
-	GetCase() []byte
+	GetCase() ([]byte, int)
 }
 
 type DispatchBase struct {
@@ -17,7 +18,7 @@ type DispatchBase struct {
 }
 
 const (
-	SPECIFIC = iota
+	SPECIFIC    = iota
 	ROUND_ROBIN
 	RANDOM
 	WEIGHT
@@ -28,8 +29,11 @@ type SpecificDispatch struct {
 	Dispatcher
 }
 
-func (s *SpecificDispatch) GetCase() []byte {
-	return s.api_case_buffers[0]
+func (s *SpecificDispatch) Init() {
+}
+
+func (s *SpecificDispatch) GetCase() ([]byte, int) {
+	return s.api_case_buffers[0], 0
 }
 
 type RoundRobinDispatch struct {
@@ -37,16 +41,20 @@ type RoundRobinDispatch struct {
 	Dispatcher
 
 	index int
+	mutex sync.Mutex
 }
 
 func (r *RoundRobinDispatch) Init() {
 	r.index = 0
 }
 
-func (r *RoundRobinDispatch) GetCase() []byte {
-	buffer := r.api_case_buffers[r.index]
-	r.index = (r.index + 1) % len(r.api_case_buffers)
-	return buffer
+func (r *RoundRobinDispatch) GetCase() ([]byte, int) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	index := r.index
+	buffer := r.api_case_buffers[index]
+	r.index = (index + 1) % len(r.api_case_buffers)
+	return buffer, index
 }
 
 type RandomDispatch struct {
@@ -58,9 +66,9 @@ func (r *RandomDispatch) Init() {
 	rand.Seed(time.Now().Unix())
 }
 
-func (r *RandomDispatch) GetCase() []byte {
+func (r *RandomDispatch) GetCase() ([]byte, int) {
 	index := rand.Intn(len(r.api_case_buffers))
-	return r.api_case_buffers[index]
+	return r.api_case_buffers[index], index
 }
 
 func NewDispatcher(api_case_buffers [][]byte, dispatcher_type int) (dispatcher Dispatcher, err error) {

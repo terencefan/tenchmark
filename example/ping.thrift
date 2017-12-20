@@ -16,4 +16,6 @@ service Ping {
              7: map<i64, double> v_map
              8: Bar v_st,
              9: map<string, Bar> v_st_map)
+    void foo1(1: i16 v_i16)
+    i16 foo2(1: i16 v_i16)
 }

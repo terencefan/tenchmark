@@ -39,5 +39,19 @@
                 }
             }
         }
+    },
+    "case2": {
+        "service": "Ping",
+        "function": "foo1",
+        "args":{
+            "v_i16": 12
+        }
+    },
+    "case3": {
+        "service": "Ping",
+        "function": "foo2",
+        "args":{
+            "v_i16": 13
+        }
     }
 }
