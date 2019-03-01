@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"time"
+	"xdispatcher"
 	"xparser"
 
 	. "github.com/stdrickforce/thriftgo/protocol"
@@ -16,9 +15,10 @@ type Processor struct {
 	pf        ProtocolFactory
 	tf        TransportFactory
 	tw        TransportWrapper
-	chSuccess chan int
+	chSuccess chan *CallInfo
 	chError   chan int32
-	message   []byte
+
+	dispatcher xdispatcher.Dispatcher
 }
 
 func (p *Processor) process(gid int, pipe <-chan int) {
@@ -34,12 +34,13 @@ func (p *Processor) process(gid int, pipe <-chan int) {
 
 	for _ = range pipe {
 		snano := time.Now().UnixNano()
-		if err := p.call(proto); err != nil {
+		buffers, index := p.dispatcher.GetCase()
+		if err := p.call(proto, buffers); err != nil {
 			fmt.Println(gid, err)
 			return
 		}
 		duration := time.Now().UnixNano() - snano
-		p.chSuccess <- int(duration / 1000)
+		p.chSuccess <- &CallInfo{index: index, duration: int(duration / 1000)}
 	}
 }
 
@@ -51,12 +52,13 @@ func (p *Processor) test() (err error) {
 	}
 	defer trans.Close()
 	proto := p.GetProtocol(trans)
-	return p.call(proto)
+	buffers, _ := p.dispatcher.GetCase()
+	return p.call(proto, buffers)
 }
 
-func (p *Processor) call(proto Protocol) (err error) {
+func (p *Processor) call(proto Protocol, buffers []byte) (err error) {
 	var trans = proto.GetTransport()
-	if _, err = trans.Write(p.message); err != nil {
+	if _, err = trans.Write(buffers); err != nil {
 		return
 	}
 	if err = trans.Flush(); err != nil {
@@ -64,28 +66,6 @@ func (p *Processor) call(proto Protocol) (err error) {
 	}
 	if err = skip_response(proto); err != nil {
 		return
-	}
-	return
-}
-
-func (p *Processor) initMessage(filename string) (err error) {
-	if filename == "" {
-		trans := NewTMemoryBuffer()
-		proto := p.GetProtocol(trans)
-
-		var fn = xparser.Call("ping")
-		if err = fn(proto); err != nil {
-			return
-		}
-		p.message = trans.GetBytes()
-	} else {
-		var f *os.File
-		if f, err = os.Open(filename); err != nil {
-			return err
-		}
-		if p.message, err = ioutil.ReadAll(f); err != nil {
-			return
-		}
 	}
 	return
 }
@@ -105,4 +85,28 @@ func (p *Processor) GetProtocol(trans Transport) Protocol {
 		proto = NewMultiplexedProtocol(proto, p.service)
 	}
 	return proto
+}
+
+func InitRunDispatcher(filename string, processor *Processor) (err error) {
+	var (
+		loader xdispatcher.DataLoader
+	)
+	if filename != "" {
+		if loader, err = xdispatcher.NewFileDataLoader(filename); err != nil {
+			return
+		}
+		loader.Load()
+		if processor.dispatcher, err = xdispatcher.NewDispatcher(loader.GetAllApis(), xdispatcher.SPECIFIC); err != nil {
+			return
+		}
+	} else {
+		trans := NewTMemoryBuffer()
+		proto := processor.GetProtocol(trans)
+		xparser.BuildPing(proto, xparser.PingCase)
+		apis := [][]byte{trans.GetBytes()}
+		if processor.dispatcher, err = xdispatcher.NewDispatcher(apis, xdispatcher.SPECIFIC); err != nil {
+			return
+		}
+	}
+	return
 }

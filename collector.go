@@ -8,7 +8,12 @@ import (
 	. "github.com/stdrickforce/thriftgo/thrift"
 )
 
-func collect_success(ch <-chan int, pipe chan<- string) {
+type CallInfo struct {
+	duration int
+	index    int
+}
+
+func collect_success(ch <-chan *CallInfo, pipe chan<- string) {
 	defer close(pipe)
 
 	snano := time.Now().UnixNano()
@@ -18,12 +23,12 @@ func collect_success(ch <-chan int, pipe chan<- string) {
 		count = 0
 	)
 
-	for duration := range ch {
+	for info := range ch {
 		count++
 		if count%1000 == 0 {
 			pipe <- fmt.Sprintf("Completed %d requests", count)
 		}
-		s = append(s, duration)
+		s = append(s, info.duration)
 	}
 	pipe <- fmt.Sprintf("Finished %d requests", count)
 	pipe <- ""
@@ -115,7 +120,7 @@ func collect_error(ch <-chan int32, pipe chan<- string) {
 	}
 }
 
-func collect(ch1 <-chan int, ch2 <-chan int32) {
+func collect(ch1 <-chan *CallInfo, ch2 <-chan int32) {
 	wg2.Add(1)
 	defer wg2.Done()
 
